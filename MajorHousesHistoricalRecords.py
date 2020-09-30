@@ -5,6 +5,7 @@ import csv
 from random import randint
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException
@@ -29,10 +30,17 @@ class HistoricalAuctionRecords():
         self.driver = webdriver.Chrome(chrome_driver_path)
 
 
-    def scroll_to_bottom(self):
+    def scroll_to_bottom(self, min_wait=5, max_wait=15, scroll_speed=10):
         """
         For pages that load content dynamically as the user scrolls this allows us to
         scroll down to the bottom of the page so we can let the content we need load.
+
+        ----------
+        Parameters
+        ----------
+        min_wait        :   int, min wait time for the randint function
+        max_wait        :   int, max wait time for the randint function
+        scroll_speed    :   int, larger for faster speed
         """
 
         # Get scroll height
@@ -43,10 +51,10 @@ class HistoricalAuctionRecords():
         # at the bottom of the page and break out of the loop.
         while True:
             # set a random wait time for each loop between 5 and 15 seconds
-            wait = randint(5, 15)
+            wait = randint(min_wait, max_wait)
 
             # Scroll down to bottom
-            for i in range(1, last_height, 10):
+            for i in range(1, last_height, scroll_speed):
                 self.driver.execute_script(f"window.scrollTo(0, {i+last_height});")
 
             # Wait to load page randomly between 1 and 10 seconds
@@ -238,9 +246,48 @@ class HistoricalAuctionRecords():
             return auction_info
 
 
+    def christies(self, url):
+        """
+
+        """
+        # use the chrome driver to navigate to the provided url
+        self.driver.get(url)
+        time.sleep(5)
+        allow_cookies = self.driver.find_element_by_xpath('/html/body/div[1]/div[2]/div[4]/div[2]/div/button')
+        allow_cookies.click()
+        body = self.driver.find_element_by_css_selector('body')
+        
+        page = 0
+
+        while True:
+            if page == 0:
+                self.scroll_to_bottom(min_wait=1, max_wait=2, scroll_speed=15)
+                body.send_keys(Keys.PAGE_UP)
+                time.sleep(1)
+                button = self.driver.find_element_by_xpath('/html/body/main/div[3]/section/div/chr-calendar/div/section[2]/chr-calendar-list/section/footer/chr-pagination/chr-button/a')
+                button.click()
+                page += 1
+                print('click')
+            else:
+                try:
+                    self.scroll_to_bottom(min_wait=1, max_wait=2, scroll_speed=15)
+                    body.send_keys(Keys.PAGE_UP)
+                    time.sleep(1)
+                    button = self.driver.find_element_by_xpath('/html/body/main/div[3]/section/div/chr-calendar/div/section[2]/chr-calendar-list/section/footer/chr-pagination/chr-button[1]/a')
+                    button.click()
+                    print('click')
+                except NoSuchElementException:
+                    break
+
+
 sothebys = 'https://www.sothebys.com/en/results?from=&to=&f2=00000164-609b-d1db-a5e6-e9ff01230000&f2=00000164-609b-d1db-a5e6-e9ff08ab0000&f3=LIVE&f3=ONLINE&q='
+christies = 'https://www.christies.com/en/results?filters=|category_7|'
 chrome_path = r'C:\Program Files (x86)\chromedriver.exe'
 
 test = HistoricalAuctionRecords(chrome_path)
 
-test.sothebys(sothebys, save_results=True, f_name='Sothebys_Auctions.csv')
+#test.sothebys(sothebys, save_results=True, f_name='Sothebys_Auctions.csv')
+
+test.christies(christies)
+
+
