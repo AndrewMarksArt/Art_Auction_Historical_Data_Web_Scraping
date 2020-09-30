@@ -1,6 +1,8 @@
+
 import time
 import csv
 
+from random import randint
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -32,11 +34,6 @@ class HistoricalAuctionRecords():
         For pages that load content dynamically as the user scrolls this allows us to
         scroll down to the bottom of the page so we can let the content we need load.
         """
-        # let the user know selenium is controlling the page
-        print('start scrolling')
-
-        # scroll wait time
-        wait = 3
 
         # Get scroll height
         last_height = self.driver.execute_script("return document.body.scrollHeight")
@@ -45,10 +42,14 @@ class HistoricalAuctionRecords():
         # where we are on the page. If the page hasn't scrolled down we are
         # at the bottom of the page and break out of the loop.
         while True:
-            # Scroll down to bottom
-            self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            # set a random wait time for each loop between 5 and 15 seconds
+            wait = randint(5, 15)
 
-            # Wait to load page
+            # Scroll down to bottom
+            for i in range(1, last_height, 10):
+                self.driver.execute_script(f"window.scrollTo(0, {i+last_height});")
+
+            # Wait to load page randomly between 1 and 10 seconds
             time.sleep(wait)
 
             # Calculate new scroll height and compare with last scroll height
@@ -68,7 +69,7 @@ class HistoricalAuctionRecords():
                         would be [Auction Title, Auction Date/Time/Location, Link to results]
         f_name      :   string, file name for the saved file
         """
-        with open(f_name, "w", newline='') as f:
+        with open(f_name, "w", encoding='UTF-8', newline='') as f:
             writer = csv.writer(f)
             for row in auctions:
                 writer.writerow(row)
@@ -90,49 +91,156 @@ class HistoricalAuctionRecords():
 
         return          :   list of lists, holds results of scrape [title, date/time, link] 
         """
+        # use the chrome driver to navigate to the provided url
         self.driver.get(url)
 
+        # using try / finally, we want to wait for the content to load
+        # if the content doesn't load after the wait time we will close the driver
         try:
-
+            # wait 5 seconds or until the content we are looking for loads
             site = WebDriverWait(self.driver, 5).until(
                 EC.presence_of_element_located((By.ID, "main-list-backbone"))
             )
 
+            # site loads results dynamically as we scroll so scroll to bottom of page
             self.scroll_to_bottom()
 
+            # initialize list that will hold results
             auction_info = []
 
-
+            # find list items from the section we are interested in and create
+            # a list of elements with the HTML tag we are looking for
             sales = site.find_elements_by_tag_name("li")
+
+            # loop through the list items we have scraped
             for sale in sales:
+                # find the content we need from the list items
                 auctions = sale.find_elements_by_class_name("content-body")
+                
+                # loop through the list of specific content
                 for auction in auctions:
 
+                    # look for auction title, if not there set to " "
                     try:
                         title = auction.find_element_by_tag_name("h2").text
                     except NoSuchElementException:
                         title = " "
                         
+                    # look for the date/time/location of the auction or set to " "
                     try:
                         auction_date = auction.find_element_by_tag_name("p").text
                     except NoSuchElementException:
                         auction_date = " "
 
+                    # look for the link to the auction results or set to " "
                     try:
                         link_element = auction.find_element_by_tag_name("a")
                         link = link_element.get_attribute("href")
                     except NoSuchElementException:
                         link = " "
 
-                    info = [title, auction_date, link]
-                    auction_info.append(info)
+                    # create a temp list with information for this auction
+                    temp = [title, auction_date, link]
 
+                    # append the temp list with current information to all auction
+                    # information list that holds all resutls
+                    auction_info.append(temp)
+
+            # close the driver once we have the information we need
+            self.driver.quit()
+
+        # if try fails -> content doesn't load by the end o four wait time close the driver
         finally:
             self.driver.quit()
 
-        self.driver.quit()
-
+        # if save results is True save auction data to csv file
         if save_results:
             self.save_to_csv(auction_info, f_name)
+
+        # if save results is False return the aution data
         else:
             return auction_info
+
+
+
+    def sothebys(self, url, save_results=True, f_name=None):
+        """
+        Get Sothebys data
+        """
+        # use the chrome driver to navigate to the provided url
+        self.driver.get(url)
+
+        # using try / finally, we want to wait for the content to load
+        # if the content doesn't load after the wait time we will close the driver
+        try:
+            # wait 5 seconds or until the content we are looking for loads
+            site = WebDriverWait(self.driver, 5).until(
+                EC.presence_of_element_located((By.ID, "searchModule"))
+            )
+
+            # site loads results dynamically as we scroll so scroll to bottom of page
+            self.scroll_to_bottom()
+
+            # initialize list that will hold results
+            auction_info = []
+            
+            # find list items from the section we are interested in and create
+            # a list of elements with the HTML tag we are looking for
+            sales = site.find_elements_by_tag_name("li")
+
+            # loop through the list items we have scraped
+            for sale in sales:
+                # find the content we need from the list items
+                auctions = sale.find_elements_by_class_name("Card-info")
+                
+                # loop through the list of specific content
+                for auction in auctions:
+
+                    # look for auction title, if not there set to " "
+                    try:
+                        title = auction.find_element_by_class_name("Card-title").text
+                    except NoSuchElementException:
+                        title = " "
+                        
+                    # look for the date/time/location of the auction or set to " "
+                    try:
+                        auction_date = auction.find_element_by_class_name("Card-details").text
+                    except NoSuchElementException:
+                        auction_date = " "
+
+                    # look for the link to the auction results or set to " "
+                    try:
+                        link_element = auction.find_element_by_tag_name("a")
+                        link = link_element.get_attribute("href")
+                    except NoSuchElementException:
+                        link = " "
+
+                    # create a temp list with information for this auction
+                    temp = [title, auction_date, link]
+
+                    # append the temp list with current information to all auction
+                    # information list that holds all resutls
+                    auction_info.append(temp)
+                    
+            # close the driver once we have the information we need
+            self.driver.quit()
+
+        # if try fails -> content doesn't load by the end o four wait time close the driver
+        finally:
+            self.driver.quit()
+
+        # if save results is True save auction data to csv file
+        if save_results:
+            self.save_to_csv(auction_info, f_name)
+
+        # if save results is False return the aution data
+        else:
+            return auction_info
+
+
+sothebys = 'https://www.sothebys.com/en/results?from=&to=&f2=00000164-609b-d1db-a5e6-e9ff01230000&f2=00000164-609b-d1db-a5e6-e9ff08ab0000&f3=LIVE&f3=ONLINE&q='
+chrome_path = r'C:\Program Files (x86)\chromedriver.exe'
+
+test = HistoricalAuctionRecords(chrome_path)
+
+test.sothebys(sothebys, save_results=True, f_name='Sothebys_Auctions.csv')
