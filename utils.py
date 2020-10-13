@@ -92,7 +92,7 @@ class WebDriverUtilities():
         self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight")
 
 
-def save_csv_list(filename, save_path, data):
+def save_csv_list(save_path, filename, data):
     """
     given a filename and save path, save the provided list (data) as a csv file
     """
